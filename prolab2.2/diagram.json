@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "author": "Yaren Suludağ",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": -258.6, "left": -10.2, "attrs": {} },
+    {
+      "type": "board-ssd1306",
+      "id": "oled1",
+      "top": -409.66,
+      "left": 269.03,
+      "attrs": { "i2cAddress": "0x3c" }
+    },
+    {
+      "type": "wokwi-slide-potentiometer",
+      "id": "pot1",
+      "top": -273.4,
+      "left": 239,
+      "attrs": { "travelLength": "30" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -394.4,
+      "left": 126.2,
+      "rotate": 90,
+      "attrs": { "color": "magenta" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -360.85,
+      "left": 144,
+      "attrs": { "value": "1000" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led2",
+      "top": -414,
+      "left": 121.8,
+      "rotate": 90,
+      "attrs": { "color": "magenta" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led3",
+      "top": -433.2,
+      "left": 121.8,
+      "rotate": 90,
+      "attrs": { "color": "magenta" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": -389.65,
+      "left": 153.6,
+      "attrs": { "value": "1000" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": -408.85,
+      "left": 163.2,
+      "attrs": { "value": "1000" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn2",
+      "top": -301,
+      "left": 259.2,
+      "attrs": { "color": "black" }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr1",
+      "top": -44.8,
+      "left": -47.2,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-tm1637-7segment",
+      "id": "sevseg2",
+      "top": -355.24,
+      "left": -2.57,
+      "attrs": { "color": "red" }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "btn1",
+      "top": -319,
+      "left": 336,
+      "attrs": { "color": "blue" }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "btn3",
+      "top": -280.6,
+      "left": 336,
+      "attrs": { "color": "yellow" }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": -324,
+      "left": -84.6,
+      "attrs": { "volume": "0.1" }
+    }
+  ],
+  "connections": [
+    [ "oled1:GND", "uno:GND.2", "black", [ "v-19.2", "h-57.6", "v288", "h-163.2" ] ],
+    [ "oled1:VCC", "uno:5V", "red", [ "v-67.2", "h-95.85", "v355.2", "h-144" ] ],
+    [ "oled1:SCL", "uno:A5", "green", [ "v-38.4", "h-95.7", "v288", "h-48" ] ],
+    [ "oled1:SDA", "uno:A4", "green", [ "v-48", "h-95.93", "v336", "h-9.6" ] ],
+    [ "pot1:GND", "uno:GND.3", "black", [ "v0" ] ],
+    [ "pot1:VCC", "uno:5V", "red", [ "h0" ] ],
+    [ "pot1:SIG", "uno:A0", "green", [ "h0" ] ],
+    [ "led1:A", "r1:1", "green", [ "v0" ] ],
+    [ "led2:A", "r2:1", "green", [ "v0" ] ],
+    [ "led3:A", "r3:1", "green", [ "v0" ] ],
+    [ "r2:2", "uno:11", "violet", [ "v230.4", "h-116.4" ] ],
+    [ "r3:2", "uno:12", "violet", [ "v307.2", "h-126" ] ],
+    [ "led1:C", "uno:GND.2", "magenta", [ "v9.6", "h-230", "v364.8", "h259.2" ] ],
+    [ "led2:C", "uno:GND.2", "magenta", [ "v9.6", "h-220.4", "v422.4", "h259.2" ] ],
+    [ "led3:C", "uno:GND.2", "magenta", [ "v9.6", "h-230", "v489.6", "h259.2" ] ],
+    [ "btn2:2.l", "uno:GND.1", "green", [ "h0" ] ],
+    [ "btn2:1.l", "uno:2", "black", [ "h0" ] ],
+    [ "ldr1:GND", "uno:GND.2", "black", [ "h0" ] ],
+    [ "ldr1:VCC", "uno:5V", "red", [ "h0" ] ],
+    [ "sevseg2:VCC", "uno:5V", "red", [ "h0" ] ],
+    [ "sevseg2:GND", "uno:GND.1", "black", [ "h0" ] ],
+    [ "sevseg2:CLK", "uno:3", "green", [ "h0" ] ],
+    [ "sevseg2:DIO", "uno:4", "green", [ "h0" ] ],
+    [ "btn1:1.l", "uno:5", "blue", [ "h0" ] ],
+    [ "btn1:2.l", "uno:GND.1", "green", [ "h0" ] ],
+    [ "btn3:1.l", "uno:6", "yellow", [ "h0" ] ],
+    [ "btn3:2.l", "uno:GND.1", "green", [ "h0" ] ],
+    [ "ldr1:AO", "uno:A1", "green", [ "h0" ] ],
+    [ "bz1:1", "uno:GND.1", "green", [ "v0" ] ],
+    [ "bz1:2", "uno:7", "green", [ "v0", "h230" ] ],
+    [ "r1:2", "uno:10", "violet", [ "v134.4", "h-10.8" ] ]
+  ],
+  "dependencies": {}
+}

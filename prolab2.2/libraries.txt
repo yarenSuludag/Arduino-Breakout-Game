@@ -1,0 +1,12 @@
+# Wokwi Library List
+# See https://docs.wokwi.com/guides/libraries
+
+# Automatically added based on includes:
+Adafruit GFX Library
+
+Adafruit SSD1306
+SevSeg
+SevenSegmentTM1637
+TM1637
+Adafruit TSL2561
+Grove 4-Digit Display

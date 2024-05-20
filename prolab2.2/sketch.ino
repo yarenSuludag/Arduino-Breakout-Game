@@ -1,0 +1,432 @@
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <TM1637.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+#define OLED_RESET    -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+const int potPin = A0; // Potansiyometre pin
+const int buttonPin = 2; // Başlat ve Çıkış düğmesi
+const int upButtonPin = 5; // Yukarı tuşu
+const int downButtonPin = 6; // Aşağı tuşu
+const int paddlePin = A1; // Palet kontrolü için pin
+const int ballSpeedLimit = 1000; // Maksimum top hızı
+const int brickRowCount = 2; // Tuğla satır sayısı
+const int brickColumnCount = 6; // Tuğla sütun sayısı
+const int brickWidth = 20;
+const int brickHeight = 8;
+const int brickPadding = 2;
+const int brickOffsetTop = 10;
+const int brickOffsetLeft = 10;
+const int ballSize = 3;
+const int paddleWidth = 30;
+const int paddleHeight = 4;
+const int initialPaddleSpeed = 4;
+const int maxPaddleSpeed = 10;
+const int maxLives = 3;
+const int brickTotal = brickRowCount * brickColumnCount;
+const int BEEP_PIN = 7; // Buzzer pin
+
+int paddleX;
+int paddleSpeed = initialPaddleSpeed;
+int ballX, ballY;
+int ballDX = 1, ballDY = -1;
+int ballSpeed;
+int score = 0;
+int lives = maxLives;
+bool gameStarted = false;
+bool lightOn = false; // Işık sensörü durumu
+
+const int canLed1 = 10;
+const int canLed2 = 11;
+const int canLed3 = 12;
+
+// Heart icon için bitmap verisi
+const unsigned char heartBitmap[] PROGMEM = {
+  0b00011000,
+  0b01111110,
+  0b11111111,
+  0b11111111,
+  0b11111111,
+  0b01111110,
+  0b00111100,
+  0b00011000
+};
+
+struct Brick {
+  bool exist;
+  int x, y;
+};
+
+Brick bricks[brickRowCount][brickColumnCount];
+
+int powerupX, powerupY;
+bool powerupActive = false;
+
+int currentLevel = 1; // Başlangıç seviyesi
+
+const int lightThreshold = 500; // Işık sensörü eşiği
+
+TM1637 tm(3,4); // CLK pin 2, DIO pin 3 olarak tanımlanmıştır.
+
+class ourOSObj {
+  public:
+    void beep(int duration) {
+      tone(BEEP_PIN, 750, duration);
+    }
+  
+    int getTonePin(void) {
+      return BEEP_PIN;
+    }
+};
+
+ourOSObj ourOS;
+
+int menuSelection = 1;
+bool upButtonPressed = false;
+bool downButtonPressed = false;
+int ballSpeedIncrement = 20; // Her seviyede hız artışı yüzdesi
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(upButtonPin, INPUT_PULLUP);
+  pinMode(downButtonPin, INPUT_PULLUP);
+  pinMode(canLed1, OUTPUT);
+  pinMode(canLed2, OUTPUT);
+  pinMode(canLed3, OUTPUT);
+  pinMode(ourOS.getTonePin(), OUTPUT); // Buzzer pinini çıkış olarak ayarla
+
+  tm.init();
+  tm.set(BRIGHT_TYPICAL);
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+
+  randomSeed(analogRead(0));
+
+  initializeBricks();
+  displayMainMenu();
+}
+
+void loop() {
+  if (!gameStarted) {
+    checkMenuSelection();
+  } else {
+    movePaddle();
+    moveBall();
+    checkCollisions();
+    if (powerupActive) {
+      movePowerUp();
+      checkPowerUp();
+    }
+    readLightSensor();
+    displayGame();
+    delay(100); // Oyun hızını ayarlamak için
+  }
+}
+
+void displayMainMenu() {
+  while (!gameStarted) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    
+    if (menuSelection == 1) {
+      display.setCursor(10, 10);
+      display.setTextColor(BLACK, WHITE); // Aktif olan seçeneğin rengini değiştir
+      display.println("1. Baslat");
+      display.setTextColor(WHITE, BLACK); // Diğer seçeneklerin rengini değiştir
+      display.setCursor(10, 30);
+      display.println("2. Cikis");
+    } else {
+      display.setCursor(10, 10);
+      display.setTextColor(WHITE, BLACK);
+      display.println("1. Baslat");
+      display.setTextColor(BLACK, WHITE);
+      display.setCursor(10, 30);
+      display.println("2. Cikis");
+    }
+
+    display.display();
+
+    if (digitalRead(upButtonPin) == LOW && !upButtonPressed) {
+      delay(100); // Debouncing
+      menuSelection = menuSelection == 1 ? 2 : 1;
+      upButtonPressed = true;
+    } else if (digitalRead(downButtonPin) == LOW && !downButtonPressed) {
+      delay(100); // Debouncing
+      menuSelection = menuSelection == 2 ? 1 : 2;
+      downButtonPressed = true;
+    } else if (digitalRead(buttonPin) == LOW) {
+      delay(100); // Debouncing
+      if (menuSelection == 1) {
+        startGame();
+      } else {
+        display.clearDisplay();
+        display.setTextSize(1);
+        display.setTextColor(WHITE);
+        display.setCursor(10, 10);
+        display.println("Oyunumuza");
+        display.setCursor(10, 25);
+        display.println("gosterdiginiz");
+        display.setCursor(10, 40);
+        display.println("ilgi icin");
+        display.setCursor(10, 55);
+        display.println("tesekkurler!");
+        display.display();
+        delay(3000);
+        displayMainMenu();
+      }
+    }
+
+    if (digitalRead(upButtonPin) == HIGH) {
+      upButtonPressed = false;
+    }
+
+    if (digitalRead(downButtonPin) == HIGH) {
+      downButtonPressed = false;
+    }
+  }
+}
+
+void checkMenuSelection() {
+ 
+}
+
+void startGame() {
+  gameStarted = true;
+  score = 0;
+  lives = maxLives;
+  ballSpeed = 4; // Başlangıç hızı
+  paddleX = (SCREEN_WIDTH - paddleWidth) / 2;
+  ballX = paddleX + (paddleWidth / 2);
+  ballY = SCREEN_HEIGHT - paddleHeight - ballSize - 1;
+  createRandomBricks(); // Oyun başladığında ilk seviyede tuğlaları oluştur
+  display.clearDisplay();
+}
+
+void initializeBricks() {
+  for (int i = 0; i < brickRowCount; i++) {
+    for (int j = 0; j < brickColumnCount; j++) {
+      bricks[i][j].exist = true;
+      bricks[i][j].x = j * (brickWidth + brickPadding) + brickOffsetLeft;
+      bricks[i][j].y = i * (brickHeight + brickPadding) + brickOffsetTop;
+    }
+  }
+}
+
+void movePaddle() {
+  int potValue = analogRead(potPin);
+  paddleX = map(potValue, 0, 1023, 0, SCREEN_WIDTH - paddleWidth);
+}
+
+void moveBall() {
+  ballX += ballDX * ballSpeed;
+  ballY += ballDY * ballSpeed;
+
+  if (ballX >= SCREEN_WIDTH - ballSize || ballX <= 0) {
+    ballDX *= -1;
+    ourOS.beep(20); 
+  }
+  if (ballY <= 0) {
+    ballDY *= -1;
+    ourOS.beep(20); 
+  }
+  if (ballY >= SCREEN_HEIGHT - ballSize) {
+    loseLife();
+  }
+}
+void checkCollisions() {
+  // Paddle ile çarpışma
+  if (ballX + ballSize >= paddleX && ballX <= paddleX + paddleWidth && ballY + ballSize >= SCREEN_HEIGHT - paddleHeight) {
+    ballDY = -1;
+    ballSpeed = constrain(ballSpeed + 1, 1, ballSpeedLimit);
+    ourOS.beep(20); 
+  }
+
+  // Tuğlalarla çarpışma
+  for (int i = 0; i < brickRowCount; i++) {
+    for (int j = 0; j < brickColumnCount; j++) {
+      Brick brick = bricks[i][j];
+      if (brick.exist) {
+        if (ballX + ballSize >= brick.x && ballX <= brick.x + brickWidth &&
+            ballY + ballSize >= brick.y && ballY <= brick.y + brickHeight) {
+          bricks[i][j].exist = false;
+          ballDY *= -1;
+          score++;
+          if (score % (brickTotal / 10) == 0) {
+            int randX = brick.x + brickWidth / 2;
+            int randY = brick.y + brickHeight / 2;
+            dropPowerUp(randX, randY);
+          }
+          ourOS.beep(20); 
+        }
+      }
+    }
+  }
+  checkBrickCount(); // Tuğla sayısını kontrol et
+}
+void loseLife() {
+  lives--;
+  if (lives <= 0) {
+    gameOver();
+  } else {
+    ourOS.beep(200); 
+    delay(1000);
+    ballSpeed = 4;
+    ballX = paddleX + (paddleWidth / 2);
+    ballY = SCREEN_HEIGHT - paddleHeight - ballSize - 1;
+  }
+}
+void dropPowerUp(int x, int y) {
+  int chance = random(0, 100);
+  if (chance < 10) { // 10% şans
+    powerupX = x;
+    powerupY = y;
+    powerupActive = true;
+  }
+}
+
+void movePowerUp() {
+  if (powerupY < SCREEN_HEIGHT) {
+    powerupY += 1;
+  } else {
+    powerupActive = false;
+  }
+}
+
+void checkPowerUp() {
+  if (powerupX >= paddleX && powerupX <= paddleX + paddleWidth && powerupY >= SCREEN_HEIGHT - paddleHeight) {
+    lives++;
+    updateLivesDisplay();
+    powerupActive = false;
+    ourOS.beep(20); 
+  }
+}
+
+void advanceLevel() {
+  currentLevel++;
+  ballSpeed = ballSpeed + ballSpeed * ballSpeedIncrement / 100; // Her seviyede hızı %20 arttır
+  ourOS.beep(200); 
+  delay(5000); // 5 saniye ara ekran
+  createRandomBricks(); // Yeni seviyede tuğlaları oluştur
+  ballX = paddleX + (paddleWidth / 2);
+  ballY = SCREEN_HEIGHT - paddleHeight - ballSize - 1;
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 20);
+  display.println("Level " + String(currentLevel));
+  display.display();
+  delay(2000);
+}
+
+void gameOver() {
+  ourOS.beep(400); 
+  gameStarted = false;
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 20);
+  display.println("Game Over");
+  display.setTextSize(1);
+  display.setCursor(20, 40);
+  display.println("Score: " + String(score));
+  display.display();
+
+  // Tüm canları kapat
+  digitalWrite(canLed1, LOW);
+  digitalWrite(canLed2, LOW);
+  digitalWrite(canLed3, LOW);
+  
+  delay(3000);
+  displayMainMenu();
+}
+
+void displayGame() {
+  display.clearDisplay();
+
+  // Arka plan rengi
+  if (lightOn) {
+    display.fillScreen(WHITE);
+  } else {
+    display.fillScreen(BLACK);
+  }
+
+  // Paddle çizimi
+  display.fillRect(paddleX, SCREEN_HEIGHT - paddleHeight, paddleWidth, paddleHeight, lightOn ? BLACK : WHITE);
+
+  // Top çizimi
+  display.fillCircle(ballX, ballY, ballSize, lightOn ? BLACK : WHITE);
+
+  // Tuğlaları çizimi
+  for (int i = 0; i < brickRowCount; i++) {
+    for (int j = 0; j < brickColumnCount; j++) {
+      Brick brick = bricks[i][j];
+      if (brick.exist) {
+        display.fillRect(brick.x, brick.y, brickWidth, brickHeight, lightOn ? BLACK : WHITE);
+      }
+    }
+  }
+
+  // Can LED'leri
+  updateLivesDisplay();
+
+  // Seven Segment Display ile skor gösterimi
+  tm.display(0, (score / 1000) % 10);
+  tm.display(1, (score / 100) % 10);
+  tm.display(2, (score / 10) % 10);
+  tm.display(3, score % 10);
+
+  // Güçlendirme objesi çizimi
+  if (powerupActive) {
+    displayPowerUp(powerupX, powerupY);
+  }
+
+  display.display();
+}
+
+void updateLivesDisplay() {
+  digitalWrite(canLed1, lives >= 1 ? HIGH : LOW);
+  digitalWrite(canLed2, lives >= 2 ? HIGH : LOW);
+  digitalWrite(canLed3, lives >= 3 ? HIGH : LOW);
+}
+
+void displayPowerUp(int x, int y) {
+  display.fillRect(x, y, 3, 3, lightOn ? BLACK : WHITE);
+}
+
+void readLightSensor() {
+  int lightValue = analogRead(A1); // Işık sensörü pin
+  lightOn = lightValue < lightThreshold;
+}
+
+void createRandomBricks() {
+  for (int i = 0; i < brickRowCount; i++) {
+    for (int j = 0; j < brickColumnCount; j++) {
+      bricks[i][j].exist = random(0, 2); // 0 veya 1 rastgele değerler
+      bricks[i][j].x = j * (brickWidth + brickPadding) + brickOffsetLeft;
+      bricks[i][j].y = i * (brickHeight + brickPadding) + brickOffsetTop;
+    }
+  }
+}
+
+void checkBrickCount() {
+  int count = 0;
+  for (int i = 0; i < brickRowCount; i++) {
+    for (int j = 0; j < brickColumnCount; j++) {
+      if (bricks[i][j].exist) {
+        count++;
+      }
+    }
+  }
+
+  if (count == 0) {
+    advanceLevel();
+  }
+}
